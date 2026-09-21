@@ -85,6 +85,12 @@
             transition: transform 0.2s ease-out;
         }
 
+        @keyframes championFlash {
+            0%, 100% { opacity: 1; transform: scale(1); filter: brightness(1); }
+            50% { opacity: .35; transform: scale(1.025); filter: brightness(1.6); }
+        }
+        .champion-flash { animation: championFlash .65s ease-in-out infinite; }
+
         /* Print Media Styles for On-Site Sheet */
         @media print {
             body * {
@@ -107,6 +113,14 @@
     </style>
 </head>
 <body class="min-h-screen flex flex-col justify-between selection:bg-amber-500 selection:text-black">
+
+    <div id="championBanner" class="hidden fixed top-0 left-0 right-0 z-[100] bg-gradient-to-r from-amber-500 via-yellow-300 to-amber-500 text-slate-950 border-b-4 border-white shadow-2xl px-4 py-5 text-center cursor-pointer" onclick="hideChampionBanner()" title="눌러서 닫기">
+        <div class="champion-flash">
+            <p class="text-sm md:text-lg font-black tracking-[.25em]">🏆 최종 우승자 확정 🏆</p>
+            <p id="championBannerText" class="text-2xl md:text-5xl font-black mt-1">소속 · 선수명</p>
+        </div>
+        <p class="text-[10px] md:text-xs font-bold mt-1">알림을 닫으려면 누르세요</p>
+    </div>
 
     <!-- Top Header & Live Stadium Scoreboard Banner -->
     <header class="bg-slate-900/90 border-b border-slate-800 backdrop-blur sticky top-0 z-30 shadow-2xl">
@@ -550,7 +564,8 @@
     <!-- Modal 6: Safe New Competition Reset -->
     <div id="modalResetCompetition" class="fixed inset-0 bg-slate-950 z-[60] hidden flex flex-col overflow-y-auto">
         <div class="min-h-screen w-full flex flex-col">
-            <div class="bg-rose-950/70 px-6 py-7 border-b border-rose-700/50 text-center">
+            <div class="relative bg-rose-950/70 px-6 py-7 border-b border-rose-700/50 text-center">
+                <button onclick="closeModal('modalResetCompetition')" class="absolute top-4 right-4 w-11 h-11 bg-slate-800 hover:bg-slate-700 text-white rounded-full text-xl" aria-label="RESET 창 닫기"><i class="fa-solid fa-xmark"></i></button>
                 <div class="mx-auto mb-3 w-14 h-14 rounded-full bg-rose-500/15 text-rose-400 flex items-center justify-center text-2xl">
                     <i class="fa-solid fa-triangle-exclamation"></i>
                 </div>
@@ -567,7 +582,18 @@
                     </div>
                 </section>
                 <section class="bg-slate-900 border border-slate-700 rounded-2xl p-6">
-                    <h4 id="resetCountTitle" class="text-base font-black text-white mb-2">2. 참가 인원 수</h4>
+                    <h4 class="text-base font-black text-white mb-4">2. 새 경기 구성</h4>
+                    <input type="hidden" id="resetTournamentType" value="standard">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                        <button id="resetTypeStandard" onclick="setResetTournamentType('standard')" class="reset-type-btn py-3 bg-blue-600 text-white border-2 border-blue-300 rounded-xl font-bold">일반 대진</button>
+                        <button id="resetTypeSemifinal" onclick="setResetTournamentType('semifinal')" class="reset-type-btn py-3 bg-slate-800 text-slate-300 border-2 border-slate-700 rounded-xl font-bold">우승자 포함 준결승</button>
+                        <button id="resetTypeRepechage" onclick="setResetTournamentType('repechage')" class="reset-type-btn py-3 bg-slate-800 text-slate-300 border-2 border-slate-700 rounded-xl font-bold">별도 패자부활전</button>
+                        <button id="resetTypeCustom" onclick="setResetTournamentType('custom')" class="reset-type-btn py-3 bg-slate-800 text-slate-300 border-2 border-slate-700 rounded-xl font-bold">기타 경기</button>
+                    </div>
+                    <p id="resetTypeHelp" class="text-xs text-blue-300 mt-3">새 참가자로 전체 대진을 만듭니다.</p>
+                </section>
+                <section class="bg-slate-900 border border-slate-700 rounded-2xl p-6">
+                    <h4 id="resetCountTitle" class="text-base font-black text-white mb-2">3. 참가 인원 수</h4>
                     <p class="text-xs text-slate-400 mb-4">2~32명 또는 2~32팀까지 입력할 수 있습니다.</p>
                     <div class="flex items-center justify-center gap-3">
                         <button onclick="changeResetCount(-1)" class="w-14 h-14 rounded-xl bg-slate-800 hover:bg-slate-700 text-2xl font-black">−</button>
@@ -895,8 +921,33 @@
 
         function openResetCompetitionModal() {
             setResetMode(tournament.category === '단체전' ? '단체전' : '개인전');
+            setResetTournamentType('standard');
             setResetCount(Math.max(2, Math.min(32, tournament.participants.length || 8)));
             document.getElementById('modalResetCompetition').classList.remove('hidden');
+        }
+
+        function setResetTournamentType(type) {
+            const valid = ['standard', 'semifinal', 'repechage', 'custom'];
+            const selectedType = valid.includes(type) ? type : 'standard';
+            document.getElementById('resetTournamentType').value = selectedType;
+            document.querySelectorAll('.reset-type-btn').forEach(button => {
+                button.classList.remove('bg-blue-600', 'text-white', 'border-blue-300');
+                button.classList.add('bg-slate-800', 'text-slate-300', 'border-slate-700');
+            });
+            const selected = document.getElementById(`resetType${selectedType.charAt(0).toUpperCase() + selectedType.slice(1)}`);
+            if (selected) {
+                selected.classList.remove('bg-slate-800', 'text-slate-300', 'border-slate-700');
+                selected.classList.add('bg-blue-600', 'text-white', 'border-blue-300');
+            }
+            const help = {
+                standard: '새 참가자로 전체 대진을 만듭니다.',
+                semifinal: '직전 대회 우승자를 포함해 4강 준결승 대진을 만듭니다.',
+                repechage: '직전 대회의 패자를 우선 불러와 별도 패자부활 대진을 만듭니다.',
+                custom: '운영자가 인원과 이름을 자유롭게 수정하는 별도 경기를 만듭니다.'
+            };
+            document.getElementById('resetTypeHelp').innerText = help[selectedType];
+            if (selectedType === 'semifinal') setResetCount(4);
+            if (selectedType === 'custom') setResetCount(2);
         }
 
         function setResetMode(mode) {
@@ -911,7 +962,7 @@
             } else {
                 team.classList.add(...selected); individual.classList.add(...normal);
             }
-            document.getElementById('resetCountTitle').innerText = mode === '단체전' ? '2. 참가 팀 수' : '2. 참가 인원 수';
+            document.getElementById('resetCountTitle').innerText = mode === '단체전' ? '3. 참가 팀 수' : '3. 참가 인원 수';
             document.getElementById('confirmResetButton').innerHTML = `<i class="fa-solid fa-rotate mr-1"></i> ${mode}으로 RESET`;
         }
 
@@ -931,9 +982,26 @@
         function confirmNewCompetitionReset() {
             if ('speechSynthesis' in window) speechSynthesis.cancel();
             const mode = document.getElementById('resetCompetitionMode').value === '단체전' ? '단체전' : '개인전';
-            const count = Math.max(2, Math.min(32, Number(document.getElementById('resetParticipantCount').value) || 2));
+            const resetType = document.getElementById('resetTournamentType').value || 'standard';
+            const count = resetType === 'semifinal' ? 4 : Math.max(2, Math.min(32, Number(document.getElementById('resetParticipantCount').value) || 2));
             localStorage.setItem('taekwonyapTournamentBeforeReset', JSON.stringify(tournament));
             const previous = tournament;
+            const previousChampion = previous.champion || getFinalWinner(previous);
+            const previousLosers = collectCompletedMatchLosers(previous);
+            let newParticipants = Array.from({ length: count }, (_, index) => ({
+                name: mode === '단체전' ? `팀 ${index + 1}` : `선수 ${index + 1}`,
+                team: mode === '단체전' ? '소속 입력' : '글로벌태권얍'
+            }));
+            let newGrade = '본선 토너먼트';
+            if (resetType === 'semifinal') {
+                newGrade = '우승자 포함 준결승';
+                if (previousChampion) newParticipants[0] = { ...previousChampion };
+            } else if (resetType === 'repechage') {
+                newGrade = '별도 패자부활전';
+                previousLosers.slice(0, count).forEach((player, index) => { newParticipants[index] = { ...player }; });
+            } else if (resetType === 'custom') {
+                newGrade = '기타 경기';
+            }
             tournament = {
                 title: previous.title || "태권얍 미니 양궁대회",
                 host: previous.host || "글로벌태권얍",
@@ -941,13 +1009,10 @@
                 venue: previous.venue || "메인 경기장",
                 sport: previous.sport || "미니 양궁 대회",
                 category: mode,
-                grade: "본선 토너먼트",
+                grade: newGrade,
                 bracketSize: 4,
                 forcedBracketSize: "auto",
-                participants: Array.from({ length: count }, (_, index) => ({
-                    name: mode === '단체전' ? `팀 ${index + 1}` : `선수 ${index + 1}`,
-                    team: mode === '단체전' ? '소속 입력' : '글로벌태권얍'
-                })),
+                participants: newParticipants,
                 matches: {},
                 repechageKeys: [],
                 repechageVisible: false,
@@ -957,7 +1022,6 @@
             };
             currentActiveMatchKey = null;
             tempSelectedWinner = null;
-            match.endedAt = new Date().toISOString();
             currentZoomScale = 1;
             document.getElementById('repechagePanel').classList.add('hidden');
             syncSettingsToUI();
@@ -967,6 +1031,36 @@
             initScheduleUI();
             closeModal('modalResetCompetition');
             openSettingsModal();
+        }
+
+        function getFinalWinner(sourceTournament = tournament) {
+            const size = sourceTournament.bracketSize || 4;
+            const finalMatch = sourceTournament.matches?.[`${Math.log2(size) - 1}-0`];
+            if (!finalMatch?.winner) return null;
+            return finalMatch.winner === 1 ? finalMatch.p1 : finalMatch.p2;
+        }
+
+        function collectCompletedMatchLosers(sourceTournament = tournament) {
+            const seen = new Set();
+            return Object.keys(sourceTournament.matches || {})
+                .filter(key => /^\d+-\d+$/.test(key))
+                .sort((a, b) => {
+                    const [ar, ai] = a.split('-').map(Number), [br, bi] = b.split('-').map(Number);
+                    return ar - br || ai - bi;
+                })
+                .map(key => {
+                    const match = sourceTournament.matches[key];
+                    if (match.winner === 1 && !match.p2?.isBye) return match.p2;
+                    if (match.winner === 2 && !match.p1?.isBye) return match.p1;
+                    return null;
+                })
+                .filter(player => {
+                    if (!player) return false;
+                    const identity = `${player.name}|${player.team}`;
+                    if (seen.has(identity)) return false;
+                    seen.add(identity);
+                    return true;
+                });
         }
 
         function undoLastCompetitionReset() {
@@ -1515,6 +1609,7 @@
             }
 
             tempSelectedWinner = null;
+            match.endedAt = new Date().toISOString();
 
             updateBracketCascade();
             renderWorldCupDualUI();
@@ -1524,8 +1619,11 @@
             const roundCount = Math.log2(tournament.bracketSize);
             const finalKey = `${roundCount - 1}-0`;
             if (currentActiveMatchKey === finalKey && match.winner !== null) {
+                const champion = match.winner === 1 ? match.p1 : match.p2;
+                tournament.champion = { ...champion };
                 triggerWinnerCelebration();
-                announceCompetitionEnd(match.winner === 1 ? match.p1 : match.p2);
+                showChampionBanner(champion);
+                announceCompetitionEnd(champion);
             } else if (match.winner !== null && match.winner !== previousWinner) {
                 playThreeSecondVictorySound();
             }
@@ -1534,10 +1632,29 @@
         }
 
         function announceCompetitionEnd(winner) {
-            if (tournament.competitionEndedAnnounced) return;
+            const winnerIdentity = `${winner?.team || ''}|${winner?.name || ''}`;
+            if (tournament.lastAnnouncedChampion === winnerIdentity) return;
+            if ('speechSynthesis' in window) speechSynthesis.cancel();
+            tournament.lastAnnouncedChampion = winnerIdentity;
             tournament.competitionEndedAnnounced = true;
-            speakKorean(`이상으로 모든 경기가 종료되었습니다. 우승자는 ${winner?.name || '결승전 승자'}입니다. 참가해 주신 모든 분께 감사드립니다.`, 800);
+            speakKorean(`최종 우승자가 확정되었습니다. 우승자는 ${winner?.team || '소속 미입력'} 소속, ${winner?.name || '결승전 승자'} 선수입니다. 축하합니다.`, 200);
             persistTournament();
+        }
+
+        let championBannerTimer = null;
+        function showChampionBanner(winner) {
+            const banner = document.getElementById('championBanner');
+            const text = document.getElementById('championBannerText');
+            if (!banner || !text) return;
+            text.innerText = `${winner?.team || '소속 미입력'} · ${winner?.name || '우승자'}`;
+            banner.classList.remove('hidden');
+            clearTimeout(championBannerTimer);
+            championBannerTimer = setTimeout(hideChampionBanner, 15000);
+        }
+
+        function hideChampionBanner() {
+            document.getElementById('championBanner')?.classList.add('hidden');
+            clearTimeout(championBannerTimer);
         }
 
         function playThreeSecondVictorySound() {
